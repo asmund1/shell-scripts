@@ -60,7 +60,7 @@ then
 fi
 
 #We make conversion till value bigger than 1024, and if yes we divide by 1024
-while [ $(echo "${value}" | awk '{if($1 > 1024) {print 1} else {print 0}}')-eq 1 ]
+while [ $(echo "${value}" | awk '{if($1 > 1024) {print 1} else {print 0}}') -eq 1 ]
 do
 	value=$(echo "${value}" | awk '{printf "%.2f", $1 / 1024}')
 	let power=$power+1
