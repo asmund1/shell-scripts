@@ -4,12 +4,12 @@
 # Memstat.sh is a shell script that calculates linux memory usage for each program / application. 
 # Script outputs shared and private memory for each program running in linux. Since memory calculation is bit complex, 
 # this shell script tries best to find more accurate results. Script use 2 files ie /proc//status (to get name of process)
-# and /proc//smaps for memory statistic of process. Then script will convert all data into Kb, Mb, Gb. 
-# Also make sure you install bc command.
+# and /proc//smaps for memory statistic of process. Then script will convert all data into Kb, Mb, Gb using awk. 
+# This version does NOT need paste or bc.
 
 
-Source : http://www.linoxide.com/linux-shell-script/linux-memory-usage-program/
-Parent : http://www.linoxide.com/guide/scripts-pdf.html
+#Source : http://www.linoxide.com/linux-shell-script/linux-memory-usage-program/
+#Parent : http://www.linoxide.com/guide/scripts-pdf.html
 
 # Make sure only root can run our script
 
@@ -29,8 +29,8 @@ then
 	if [ -f /proc/$PID/smaps ]; 
 	then
 		#here we count memory usage, Pss, Private and Shared = Pss-Private
-		Pss=`cat /proc/$PID/smaps | grep -e "^Pss:" | awk '{print $2}'| paste -sd+ | bc `
-		Private=`cat /proc/$PID/smaps | grep -e "^Private" | awk '{print $2}'| paste -sd+ | bc `
+		Pss=`cat /proc/$PID/smaps | grep -e "^Pss:" | awk '{ sum+=$2} END {print sum}' `
+		Private=`cat /proc/$PID/smaps | grep -e "^Private" | awk '{ sum+=$2} END {print sum}'`
 		#we need to be sure that we count Pss and Private memory, to avoid errors
 		if [ x"$Rss" != "x" -o x"$Private" != "x" ]; 
 		then
@@ -60,9 +60,9 @@ then
 fi
 
 #We make conversion till value bigger than 1024, and if yes we divide by 1024
-while [ $(echo "${value} > 1024"|bc) -eq 1 ]
+while [ $(echo "${value}" | awk '{if($1 > 1024) {print 1} else {print 0}}')-eq 1 ]
 do
-	value=$(echo "scale=2;${value}/1024" |bc)
+	value=$(echo "${value}" | awk '{printf "%.2f", $1 / 1024}')
 	let power=$power+1
 done
 
@@ -83,10 +83,10 @@ echo -n "${value} ${reg} "
 [[ -f /tmp/res3 ]] && rm -f /tmp/res3
 
 
-#if argument passed script will show statistic only for that pid, of not � we list all processes in /proc/ #and get statistic for all of them, all result we store in file /tmp/res
+#if argument passed script will show statistic only for that pid, of not ï¿½ we list all processes in /proc/ #and get statistic for all of them, all result we store in file /tmp/res
 if [ $# -eq 0 ]
 then
-	pids=`ls /proc | grep -e [0-9] | grep -v [A-Za-z] `
+	pids=`ls /proc | grep -e "[0-9]" | grep -v "[A-Za-z]" `
 	for i in $pids
 	do
 	get_process_mem $i >> /tmp/res
@@ -112,10 +112,10 @@ else
 	count="(${count})"
 fi
 
-VmSizeKB=`cat /tmp/res2 | awk -v src=$Name '{if ($6==src) {print $1}}' | paste -sd+ | bc`
-VmRssKB=`cat /tmp/res2 | awk -v src=$Name '{if ($6==src) {print $3}}' | paste -sd+ | bc`
-total=`cat /tmp/res2 | awk '{print $5}' | paste -sd+ | bc`
-Sum=`echo "${VmRssKB}+${VmSizeKB}"|bc`
+VmSizeKB=`cat /tmp/res2 | awk -v src=$Name '{if ($6==src) { sum+=$1}} END {print sum}'`
+VmRssKB=`cat /tmp/res2 | awk -v src=$Name '{if ($6==src) { sum+=$3}} END {print sum}'`
+total=`cat /tmp/res2 | awk '{ sum+=$5} END {print sum}'`
+Sum=`echo "${VmRssKB} ${VmSizeKB}" | awk '{print $1 + $2}'`
 #all result stored in /tmp/res3 file
 echo -e "$VmSizeKB  + $VmRssKB = $Sum \t ${Name}${count}" >>/tmp/res3
 done
